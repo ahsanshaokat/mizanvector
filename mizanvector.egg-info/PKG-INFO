@@ -1,0 +1,156 @@
+Metadata-Version: 2.4
+Name: mizanvector
+Version: 0.2.0
+Summary: Scale-aware embedding & vector search framework using Mizan similarity.
+Author: Ahsan Shaokat
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: psycopg2-binary
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: torch; extra == "dev"
+Requires-Dist: torchvision; extra == "dev"
+Requires-Dist: sentence-transformers; extra == "dev"
+Dynamic: license-file
+
+# MizanVector
+
+A **scale-aware embedding & vector search framework** built around
+**Mizan similarity / distance**.
+
+## Features
+
+- Mizan-based similarity & distance for vectors
+- Drop-in metrics: cosine, dot product, Euclidean, Mizan
+- Pluggable vector stores:
+  - In-memory store (for demos & unit tests)
+  - PostgreSQL + pgvector backend
+- Simple HuggingFace embedding wrapper
+- Mizan-based re-ranking utilities
+- Mizan-based losses for training your own embeddings
+
+---
+
+## Quickstart (in-memory)
+
+```python
+from mizanvector import MizanMemoryStore
+
+store = MizanMemoryStore(dim=3)
+store.add_document("doc_a", [1, 2, 3])
+store.add_document("doc_b", [2, 4, 6])
+store.add_document("doc_c", [1, 3, 2])
+
+query = [1, 2, 3]
+results = store.search(query, top_k=3, metric="mizan")
+for r in results:
+    print(r.id, r.content, r.score)
+
+
+PostgreSQL + pgvector backend
+
+Install the pgvector extension in your PostgreSQL instance.
+
+Set environment variables (or pass args):
+
+export MIZANVECTOR_DB_DSN="postgresql://user:password@localhost:5432/mizanvector"
+export MIZANVECTOR_DB_TABLE="mizan_documents"
+export MIZANVECTOR_DEFAULT_DIM=384
+export MIZANVECTOR_DEFAULT_METRIC=mizan
+
+
+Use the pgvector store:
+
+from mizanvector import HFEmbedder, MizanPgVectorStore
+
+embedder = HFEmbedder()
+store = MizanPgVectorStore(dim=384)  # DSN + table from env
+
+emb = embedder.encode_one("hello world")
+store.add_document("hello world", emb, metadata={"source": "demo"})
+
+q_emb = embedder.encode_one("hi world")
+hits = store.search(q_emb, top_k=5, metric="mizan")
+for h in hits:
+    print(h.id, h.score, h.content)
+
+Training Mizan-based embeddings
+
+MizanVector includes custom loss functions for training your own embedding models.
+
+MizanContrastiveLoss
+import torch
+from mizanvector.losses import MizanContrastiveLoss
+
+loss_fn = MizanContrastiveLoss(margin=0.5)
+
+emb1 = torch.randn(32, 128)
+emb2 = torch.randn(32, 128)
+labels = torch.randint(0, 2, (32,))  # 1 = similar, 0 = dissimilar
+
+loss = loss_fn(emb1, emb2, labels)
+loss.backward()
+
+
+You can plug this loss into any encoder model and then store the resulting
+embeddings in MizanMemoryStore or MizanPgVectorStore for Mizan-powered
+vector search.
+
+Example: Tiny Encoder + MizanContrastiveLoss (MNIST)
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, Dataset
+from torchvision import datasets, transforms
+from mizanvector.losses import MizanContrastiveLoss
+
+class MNISTPairs(Dataset):
+    def __init__(self, train=True):
+        transform = transforms.Compose([transforms.ToTensor()])
+        self.data = datasets.MNIST(root="./data", train=train, download=True, transform=transform)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        img1, label1 = self.data[idx]
+        idx2 = torch.randint(low=0, high=len(self.data), size=(1,)).item()
+        img2, label2 = self.data[idx2]
+        y = 1 if label1 == label2 else 0
+        img1 = img1.view(-1)
+        img2 = img2.view(-1)
+        return img1, img2, torch.tensor(y, dtype=torch.float)
+
+class TinyEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(28*28, 128),
+            nn.ReLU(),
+            nn.Linear(128, 32),
+        )
+
+    def forward(self, x):
+        return self.fc(x)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = TinyEncoder().to(device)
+criterion = MizanContrastiveLoss(margin=0.4).to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+loader = DataLoader(MNISTPairs(train=True), batch_size=64, shuffle=True)
+
+for epoch in range(3):
+    total_loss = 0.0
+    for x1, x2, y in loader:
+        x1, x2, y = x1.to(device), x2.to(device), y.to(device)
+        emb1 = model(x1)
+        emb2 = model(x2)
+        loss = criterion(emb1, emb2, y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f"Epoch {epoch+1}, Loss={total_loss/len(loader):.4f}")

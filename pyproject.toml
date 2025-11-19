@@ -4,15 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mizanvector"
-version = "0.1.0"
+version = "0.2.0"
 description = "Scale-aware embedding & vector search framework using Mizan similarity."
 authors = [{name = "Ahsan Shaokat"}]
 license = {text = "MIT"}
+readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "numpy",
-    "psycopg2-binary",
+    "psycopg2-binary"
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "sentence-transformers"]
+dev = ["pytest", "torch", "torchvision", "sentence-transformers"]
