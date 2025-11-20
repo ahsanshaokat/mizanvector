@@ -1,4 +1,4 @@
-from mizanvector.metrics import (
+from mizan_vector.metrics import (
     cosine_similarity,
     euclidean_distance,
     mizan_distance,

@@ -1,6 +1,6 @@
 """Basic example: in-memory search with Mizan vs cosine."""
 
-from mizanvector import MizanMemoryStore
+from mizan_vector import MizanMemoryStore
 
 
 def main() -> None:

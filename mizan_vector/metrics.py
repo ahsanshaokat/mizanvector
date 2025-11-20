@@ -27,8 +27,35 @@ def euclidean_distance(v1: Sequence[float], v2: Sequence[float]) -> float:
     v2 = _to_vec(v2)
     return float(np.linalg.norm(v1 - v2))
 
+def mizan_distance(v1, v2, p=2.0, eps=1e-8):
+    v1 = _to_vec(v1)
+    v2 = _to_vec(v2)
 
-def mizan_distance(
+    # raw Lp distance
+    diff = np.linalg.norm(v1 - v2, ord=p)
+
+    # magnitudes
+    mag1 = np.linalg.norm(v1, ord=p)
+    mag2 = np.linalg.norm(v2, ord=p)
+
+    # scale imbalance: how different magnitudes are
+    scale = abs(mag1 - mag2) / (mag1 + mag2 + eps)
+
+    # Component overlap / balance (shape similarity)
+    overlap = np.sum(np.minimum(np.abs(v1), np.abs(v2))) / (
+        np.sum(np.maximum(np.abs(v1), np.abs(v2))) + eps
+    )
+
+    # base normalized distance
+    raw = diff / (mag1 + mag2 + eps)
+
+    # incorporate scale imbalance + overlap
+    balanced = raw * (1 + scale) * (1 - overlap)
+
+    return balanced
+
+
+def mizan_distance_cos(
     v1: Sequence[float], v2: Sequence[float], p: float = 2.0, eps: float = 1e-8
 ) -> float:
     """Mizan distance between two vectors in [0, 1]."""
@@ -45,3 +72,4 @@ def mizan_similarity(
 ) -> float:
     """Mizan similarity in [0, 1]. Higher = more similar."""
     return 1.0 - mizan_distance(v1, v2, p=p, eps=eps)
+

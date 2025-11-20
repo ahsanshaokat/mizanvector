@@ -1,1 +1,0 @@
-# pgvector store placeholder
