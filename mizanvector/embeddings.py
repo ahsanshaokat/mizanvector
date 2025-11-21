@@ -20,14 +20,13 @@ class HFEmbedder:
             )
 
         # IMPORTANT: disable ALL normalization inside the model
-        self.model = SentenceTransformer(model_name, normalize_embeddings=False)
+        self.model = SentenceTransformer(model_name)
 
     def encode(self, texts: Iterable[str]) -> List[list[float]]:
         # IMPORTANT: keep normalization disabled here too
         embs = self.model.encode(
             list(texts),
-            show_progress_bar=False,
-            normalize_embeddings=False
+            show_progress_bar=False
         )
         return embs.tolist()
 

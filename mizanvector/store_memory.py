@@ -21,17 +21,19 @@ class MizanMemoryStore(VectorStore):
         content: str,
         embedding: Sequence[float],
         metadata: Dict[str, Any] | None = None,
+        id: int | None = None,
     ) -> int:
         vec = np.asarray(embedding, dtype=float)
         if vec.shape[0] != self.dim:
-            raise ValueError(
-                f"Embedding dim {vec.shape[0]} does not match store dim {self.dim}"
-            )
-        doc_id = len(self._docs)
+            raise ValueError(...)
+
+        if id is None:
+            id = len(self._docs)
+
         self._docs.append(
-            {"id": doc_id, "content": content, "metadata": metadata or {}, "embedding": vec}
+            {"id": id, "content": content, "metadata": metadata or {}, "embedding": vec}
         )
-        return doc_id
+        return id
 
     def _score(self, q: np.ndarray, v: np.ndarray, metric: str) -> float:
         if metric == "mizan":

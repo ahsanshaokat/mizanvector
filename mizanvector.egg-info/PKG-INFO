@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mizanvector
-Version: 0.2.1
+Version: 0.2.3
 Summary: Scale-aware embedding & vector search framework using Mizan similarity.
 Author: Ahsan Shaokat
 License: MIT

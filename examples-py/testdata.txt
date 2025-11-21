@@ -1,0 +1,19 @@
+Mizan Balance Function Test Document
+
+Section 1: Introduction
+Mizan is a scale-aware similarity metric designed to overcome limitations
+of cosine similarity and Euclidean distance. It handles multi-scale data,
+outliers, and proportional error.
+
+Section 2: Example Content
+Ahsan Shaokat is the creator of the Mizan Balance Function. This document
+provides examples for testing chunking and vector similarity.
+
+Section 3: Mixed Content
+Cosine similarity ignores magnitude. Euclidean distance explodes on outliers.
+Mizan similarity is robust, proportional, and suitable for modern embedding
+techniques.
+
+Section 4: Conclusion
+Mizan is useful for large text search, RAG retrieval, embeddings, and similarity
+learning.
