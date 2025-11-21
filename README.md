@@ -1,138 +1,204 @@
-# MizanVector
+# mizanvector
 
-A **scale-aware embedding & vector search framework** built around
-**Mizan similarity / distance**.
+**MizanVector** is the core engine behind the **Mizan Balance Function** ecosystem —  
+providing *scale-aware* similarity metrics, distance functions, vector search, and  
+training losses for modern embedding models.
 
-## Features
-
-- Mizan-based similarity & distance for vectors
-- Drop-in metrics: cosine, dot product, Euclidean, Mizan
-- Pluggable vector stores:
-  - In-memory store (for demos & unit tests)
-  - PostgreSQL + pgvector backend
-- Simple HuggingFace embedding wrapper
-- Mizan-based re-ranking utilities
-- Mizan-based losses for training your own embeddings
+> **Proposed & Developed by:**  
+> **Ahsan Shaokat** – Computer Scientist & AI/ML Researcher  
+> Creator of the **Mizan Balance Function** (2025)
 
 ---
 
-## Quickstart (in-memory)
+# 🌟 Why MizanVector?
 
+Modern embedding systems depend heavily on **cosine similarity**, but cosine has major limitations:
+
+❌ Ignores vector **magnitude**  
+❌ Fails with **multi-scale data**  
+❌ Collapses when embeddings contain **outliers or noise**  
+❌ Penalizes long documents unevenly  
+❌ Produces unstable ranking in real RAG pipelines
+
+**Mizan** solves these problems.
+
+### ✔ What Mizan brings:
+
+- **Scale-aware** similarity  
+- **Proportional error** instead of absolute distance  
+- **Does not require normalization** (keeps magnitude information)  
+- **Stable across chunk sizes and multi-modal embeddings**  
+- **Better retrieval accuracy** in large datasets  
+- **Works with any embedding model**  
+- Fully compatible with RAG + Vector DBs  
+
+---
+
+# 🔢 The Mizan Balance Function
+
+The core similarity function:
+
+\[
+M(x,y) = 1 - \frac{\|x - y\|_p}{\|x\|_p + \|y\|_p + \epsilon}
+\]
+
+Where:
+
+- \( x, y \) = vectors  
+- \( p \ge 1 \) = strictness  
+- \( \epsilon \) = numerical stability
+
+**Interpretation:**
+
+- If vectors are identical → Mizan = **1.0**  
+- If proportional but different → high similarity  
+- If very different (or noisy) → lower similarity  
+
+Mizan is a **continuous**, **bounded**, **scale-aware**, **interpretable** metric.
+
+---
+
+# 📦 Features
+
+### 1. **Mizan Similarity & Distance Metrics**
+- `mizan_similarity(v1, v2, p)`
+- `mizan_distance(v1, v2, p)`
+- Drop-in replacements for cosine, dot-product, or L2 distance
+
+### 2. **In-Memory Vector Store**
 ```python
 from mizanvector import MizanMemoryStore
+Features:
 
-store = MizanMemoryStore(dim=3)
-store.add_document("doc_a", [1, 2, 3])
-store.add_document("doc_b", [2, 4, 6])
-store.add_document("doc_c", [1, 3, 2])
+Store embeddings
 
-query = [1, 2, 3]
-results = store.search(query, top_k=3, metric="mizan")
-for r in results:
-    print(r.id, r.content, r.score)
+Search with Mizan/Cosine/EUCLIDEAN
 
+Metadata storage
 
-PostgreSQL + pgvector backend
+Lightweight & fast
 
-Install the pgvector extension in your PostgreSQL instance.
+3. Postgres + pgvector Backend
+python
+Copy code
+from mizanvector import MizanPgVectorStore
+Production-ready
 
-Set environment variables (or pass args):
+Mizan similarity inside SQL queries
 
-export MIZANVECTOR_DB_DSN="postgresql://user:password@localhost:5432/mizanvector"
-export MIZANVECTOR_DB_TABLE="mizan_documents"
-export MIZANVECTOR_DEFAULT_DIM=384
-export MIZANVECTOR_DEFAULT_METRIC=mizan
+Hybrid searching supported
 
-
-Use the pgvector store:
-
-from mizanvector import HFEmbedder, MizanPgVectorStore
-
-embedder = HFEmbedder()
-store = MizanPgVectorStore(dim=384)  # DSN + table from env
-
-emb = embedder.encode_one("hello world")
-store.add_document("hello world", emb, metadata={"source": "demo"})
-
-q_emb = embedder.encode_one("hi world")
-hits = store.search(q_emb, top_k=5, metric="mizan")
-for h in hits:
-    print(h.id, h.score, h.content)
-
-Training Mizan-based embeddings
-
-MizanVector includes custom loss functions for training your own embedding models.
-
+4. Training Losses
 MizanContrastiveLoss
-import torch
-from mizanvector.losses import MizanContrastiveLoss
 
-loss_fn = MizanContrastiveLoss(margin=0.5)
+MizanTripletLoss
 
-emb1 = torch.randn(32, 128)
-emb2 = torch.randn(32, 128)
-labels = torch.randint(0, 2, (32,))  # 1 = similar, 0 = dissimilar
+Can replace InfoNCE or cosine losses in training your own embedding models
 
-loss = loss_fn(emb1, emb2, labels)
-loss.backward()
+5. HFEmbedder Utility
+Simple HuggingFace embedding wrapper:
 
+python
+Copy code
+from mizanvector import HFEmbedder
+emb = HFEmbedder("all-MiniLM-L6-v2")
+🚀 Quickstart Usage
+Install
+bash
+Copy code
+pip install mizanvector
+🔎 Example: In-Memory Search
+python
+Copy code
+from mizanvector import MizanMemoryStore, HFEmbedder
 
-You can plug this loss into any encoder model and then store the resulting
-embeddings in MizanMemoryStore or MizanPgVectorStore for Mizan-powered
-vector search.
+embedder = HFEmbedder("all-MiniLM-L6-v2")
+store = MizanMemoryStore(dim=384)
 
-Example: Tiny Encoder + MizanContrastiveLoss (MNIST)
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
-from torchvision import datasets, transforms
-from mizanvector.losses import MizanContrastiveLoss
+docs = [
+    "Mizan is a scale-aware similarity metric.",
+    "Cosine similarity ignores magnitude.",
+    "Ahsan Shaokat created the Mizan Balance Function.",
+]
 
-class MNISTPairs(Dataset):
-    def __init__(self, train=True):
-        transform = transforms.Compose([transforms.ToTensor()])
-        self.data = datasets.MNIST(root="./data", train=train, download=True, transform=transform)
+embs = embedder.encode(docs)
 
-    def __len__(self):
-        return len(self.data)
+for d, e in zip(docs, embs):
+    store.add_document(content=d, embedding=e.tolist())
 
-    def __getitem__(self, idx):
-        img1, label1 = self.data[idx]
-        idx2 = torch.randint(low=0, high=len(self.data), size=(1,)).item()
-        img2, label2 = self.data[idx2]
-        y = 1 if label1 == label2 else 0
-        img1 = img1.view(-1)
-        img2 = img2.view(-1)
-        return img1, img2, torch.tensor(y, dtype=torch.float)
+query = "who invented the mizan function?"
+q_emb = embedder.encode_one(query).tolist()
 
-class TinyEncoder(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(28*28, 128),
-            nn.ReLU(),
-            nn.Linear(128, 32),
-        )
+results = store.search(q_emb, top_k=3, metric="mizan")
 
-    def forward(self, x):
-        return self.fc(x)
+for r in results:
+    print(r.score, "|", r.content)
+🧪 Example: Compare Mizan vs Cosine
+python
+Copy code
+from mizanvector.metrics import mizan_similarity, cosine_similarity
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = TinyEncoder().to(device)
-criterion = MizanContrastiveLoss(margin=0.4).to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+v1 = [1.0, 2.0, 3.0]
+v2 = [1.1, 2.1, 3.1]
 
-loader = DataLoader(MNISTPairs(train=True), batch_size=64, shuffle=True)
+print("Mizan:", mizan_similarity(v1, v2))
+print("Cosine:", cosine_similarity(v1, v2))
+🧠 API Overview
+Memory Store
+python
+Copy code
+store = MizanMemoryStore(dim=384)
 
-for epoch in range(3):
-    total_loss = 0.0
-    for x1, x2, y in loader:
-        x1, x2, y = x1.to(device), x2.to(device), y.to(device)
-        emb1 = model(x1)
-        emb2 = model(x2)
-        loss = criterion(emb1, emb2, y)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        total_loss += loss.item()
-    print(f"Epoch {epoch+1}, Loss={total_loss/len(loader):.4f}")
+store.add_document(
+    content="Some text",
+    embedding=[...],
+    metadata={"id": 1}
+)
+
+results = store.search(q_emb, top_k=5, metric="mizan")
+Postgres Store
+python
+Copy code
+store = MizanPgVectorStore(
+    table="my_vectors",
+    dsn="postgresql://user:pass@localhost:5432/db"
+)
+📘 How Mizan Helps (Applications)
+✔ RAG Pipelines
+Stable retrieval across chunk lengths.
+
+✔ LLM Embedding Ranking
+Better vector scoring for hybrid search.
+
+✔ Outlier-Resistant Retrieval
+Mizan handles noisy embeddings gracefully.
+
+✔ Multi-Modal Search (Text + Images)
+Magnitude differences become meaningful.
+
+✔ Code Search
+Detect proportional similarity even in different-length source files.
+
+✔ Large-Scale Knowledge Bases
+Reduces ranking errors caused by cosine.
+
+🧩 Mizan Ecosystem
+Component	Purpose
+mizanvector	Metrics, losses, vector DB, similarity engine
+mizan-embedder	Train embedding models optimized for Mizan
+mizan-rag	Full Mizan-powered Retrieval-Augmented Generation
+mizan-models	Published models like MizanTextEncoder-base
+
+📜 License
+MIT License
+© 2025 Ahsan Shaokat
+
+You are free to use, modify, and distribute this software.
+
+🙌 Acknowledgements
+HuggingFace Transformers
+
+pgvector community
+
+PyTorch
+

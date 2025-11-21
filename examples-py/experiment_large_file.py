@@ -1,7 +1,6 @@
 import os
 from mizanvector import HFEmbedder, MizanMemoryStore
 
-
 def load_large_file(path):
     with open(path, "r", encoding="utf-8", errors="ignore") as f:
         return f.read()
@@ -14,53 +13,53 @@ def chunk_text(text, chunk_size=800, overlap=150):
     while start < n:
         end = min(start + chunk_size, n)
         chunk = text[start:end]
-
         chunks.append(chunk)
         start += (chunk_size - overlap)
 
     return chunks
 
 def main():
-    # Path to your large file
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(BASE_DIR, "testdata.txt")
+    path = os.path.join(BASE_DIR, "testdata_large_mizan.txt")
     text = load_large_file(path)
 
     print("Loaded file:", path)
     print("Length:", len(text))
 
-    # Chunk the file
     chunks = chunk_text(text, chunk_size=800, overlap=150)
     print("Total chunks:", len(chunks))
 
-    # Embedder
+    # all-MiniLM-L6-v2
+    # sentence-transformers/all-mpnet-base-v2
     embedder = HFEmbedder("intfloat/e5-large-v2")
     embeddings = embedder.encode(chunks)
 
-    # Create store
     store = MizanMemoryStore(dim=len(embeddings[0]))
 
-    # Add chunks to store
+    # Add chunks
     for idx, (chunk, emb) in enumerate(zip(chunks, embeddings)):
         store.add_document(
-            id=f"chunk_{idx}",
             content=chunk,
             embedding=emb,
             metadata={"chunk_id": idx}
         )
 
-    # Query
-    query = "who is ahsan shaokat?"
+    query = "what is mizan?"
     q_emb = embedder.encode_one(query)
 
-    # Retrieve using Mizan vs Cosine
-    print("\nTOP RESULTS — MIZAN")
+    # --- MIZAN RESULTS ---
+    print("\n==================== TOP RESULTS — MIZAN ====================")
     for r in store.search(q_emb, top_k=3, metric="mizan"):
-        print(f"[MIZAN] {r.score:.4f} | Chunk ID: {r.id}")
+        preview = r.content[:200].replace("\n", " ")  # first 200 chars
+        print(f"\n[MIZAN] Score: {r.score:.4f} | Chunk ID: {r.id}")
+        print(f"Text: {preview}...")
 
-    print("\nTOP RESULTS — COSINE")
+    # --- COSINE RESULTS ---
+    print("\n==================== TOP RESULTS — COSINE ====================")
     for r in store.search(q_emb, top_k=3, metric="cosine"):
-        print(f"[COS]   {r.score:.4f} | Chunk ID: {r.id}")
+        preview = r.content[:200].replace("\n", " ")
+        print(f"\n[COS]   Score: {r.score:.4f} | Chunk ID: {r.id}")
+        print(f"Text: {preview}...")
 
 if __name__ == "__main__":
     main()
